@@ -47,6 +47,7 @@ for i in range(1, 11):
 # Input form
 st.header("Inventory Inputs")
 num_individual = st.number_input("Number of Individual Inventory", min_value=0, max_value=200, value=0)
+stackable_flags = []
 weights, lengths, widths, heights = [], [], [], []
 cols = st.columns(5)
 for i in range(num_individual):
@@ -59,12 +60,14 @@ for i in range(num_individual):
     with cols[3]:
         heights.append(st.number_input(f"Height {i+1} (m)", key=f"hei_{i}", value=1.0))
     with cols[4]:
+    stackable_flags.append(st.checkbox(f"Stackable {i+1}", key=f"stk_{i}", value=True))
         st.markdown("&nbsp;")
 
 st.markdown("---")
 st.subheader("Bulk Inventory Entries")
 bulk_entries = st.number_input("Number of Bulk Inventory Types", min_value=0, max_value=20, value=0)
 
+bulk_stackable_flags = []
 for i in range(bulk_entries):
     st.markdown(f"**Bulk Parcel Type {i+1}**")
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -80,10 +83,12 @@ for i in range(bulk_entries):
         height = st.number_input("Height (m)", value=1.0, key=f"b_hei_{i}")
 
     for _ in range(quantity):
+    bulk_stackable_flags.extend([stackable] * quantity)
         weights.append(weight)
         lengths.append(length)
         widths.append(width)
         heights.append(height)
+stackable_flags.extend(bulk_stackable_flags)
 
 areas = [lengths[i] * widths[i] for i in range(len(weights))]
 
@@ -141,11 +146,9 @@ def run_optimizer(parcel_indices):
     return assignment, used_vehicles, total_cost
 
 # Layout fitting
-
 def fit_layout(assignment):
     failed = []
     layout = {v: [] for v in set(assignment.values())}
-    stack_levels = {v: {} for v in layout}  # Track stacking at each (x, y)
 
     for v in layout:
         truck = vehicles[v]
@@ -154,50 +157,30 @@ def fit_layout(assignment):
 
         for i in parcels:
             L, W = lengths[i], widths[i]
-            H = heights[i]
-            stackable = stackable_flags[i]
             placed = False
-
             for rotate in [(L, W), (W, L)]:
                 l, w = rotate
                 if l > truck["max_length"] or w > truck["max_width"]:
                     continue
-
                 if x_cursor + l <= truck["max_length"] and y_cursor + w <= truck["max_width"]:
-                    pos_key = (x_cursor, y_cursor)
-                    current_height = stack_levels[v].get(pos_key, 0)
-
-                    if current_height + H <= truck["max_height"]:
-                        if current_height == 0 or stackable:
-                            layout[v].append((i, x_cursor, y_cursor, l, w, current_height + H))
-                            stack_levels[v][pos_key] = current_height + H
-                            x_cursor += l
-                            row_height = max(row_height, w)
-                            placed = True
-                            break
-
+                    layout[v].append((i, x_cursor, y_cursor, l, w))
+                    x_cursor += l
+                    row_height = max(row_height, w)
+                    placed = True
+                    break
             if not placed:
                 x_cursor = 0
                 y_cursor += row_height
                 row_height = 0
-                pos_key = (x_cursor, y_cursor)
-                current_height = stack_levels[v].get(pos_key, 0)
-
                 if L <= truck["max_length"] and W <= truck["max_width"] and y_cursor + W <= truck["max_width"]:
-                    if current_height + H <= truck["max_height"]:
-                        if current_height == 0 or stackable:
-                            layout[v].append((i, x_cursor, y_cursor, L, W, current_height + H))
-                            stack_levels[v][pos_key] = current_height + H
-                            x_cursor += L
-                            row_height = W
-                        else:
-                            failed.append(i)
-                    else:
-                        failed.append(i)
+                    layout[v].append((i, x_cursor, y_cursor, L, W))
+                    x_cursor += L
+                    row_height = W
                 else:
                     failed.append(i)
-
     return layout, failed
+
+# Visualization
 def visualize_layout(layout_data):
     fig, axes = plt.subplots(len(layout_data), 1, figsize=(10, 5 * len(layout_data)))
     if len(layout_data) == 1:
@@ -274,11 +257,9 @@ if st.button("Run Optimization"):
         else:
             st.success("All parcels placed successfully.")
 
-        
-if all_assignment:
-    truck_summary = pd.DataFrame({
-        "Parcel ID": list(all_assignment.keys()),
-        "Assigned Truck": [all_assignment[i] for i in all_assignment]
-    })
-    st.dataframe(truck_summary)
-visualize_layout(all_layout)
+        if all_assignment:
+            truck_summary = pd.Series(list(all_assignment.values())).value_counts().reset_index()
+            truck_summary.columns = ["Truck", "Number of Parcels"]
+            st.dataframe(truck_summary)
+
+            visualize_layout(all_layout)
