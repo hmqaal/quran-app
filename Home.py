@@ -47,7 +47,7 @@ for i in range(1, 11):
 # Input form
 st.header("Inventory Inputs")
 num_individual = st.number_input("Number of Individual Inventory", min_value=0, max_value=200, value=0)
-weights, lengths, widths, heights = [], [], [], []
+weights, lengths, widths, heights, stackable_flags = [], [], [], [], []
 cols = st.columns(5)
 for i in range(num_individual):
     with cols[0]:
