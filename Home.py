@@ -48,6 +48,7 @@ for i in range(1, 11):
 st.header("Inventory Inputs")
 num_individual = st.number_input("Number of Individual Inventory", min_value=0, max_value=200, value=0)
 weights, lengths, widths, heights = [], [], [], []
+stackable_flags = []
 cols = st.columns(5)
 for i in range(num_individual):
     with cols[0]:
@@ -80,10 +81,12 @@ for i in range(bulk_entries):
         height = st.number_input("Height (m)", value=1.0, key=f"b_hei_{i}")
 
     for _ in range(quantity):
+    stackable_flags.append(stackable)
         weights.append(weight)
         lengths.append(length)
         widths.append(width)
         heights.append(height)
+stackable_flags.append(st.checkbox(f"Stackable {i+1}", key=f"stk_{i}", value=True))
 
 areas = [lengths[i] * widths[i] for i in range(len(weights))]
 
@@ -151,13 +154,27 @@ def fit_layout(assignment):
         x_cursor, y_cursor, row_height = 0, 0, 0
 
         for i in parcels:
+    height_map = {}  # Track stacking height at each (x, y)
             L, W = lengths[i], widths[i]
             placed = False
             for rotate in [(L, W), (W, L)]:
+    if not stackable_flags[i]:
+        height_limit = truck["max_height"]
+    else:
+        height_limit = truck["max_height"]
                 l, w = rotate
                 if l > truck["max_length"] or w > truck["max_width"]:
                     continue
-                if x_cursor + l <= truck["max_length"] and y_cursor + w <= truck["max_width"]:
+if x_cursor + l <= truck["max_length"] and y_cursor + w <= truck["max_width"]:
+    key = (x_cursor, y_cursor)
+    current_height = height_map.get(key, 0)
+    if current_height + heights[i] <= height_limit:
+        layout[v].append((i, x_cursor, y_cursor, l, w))
+        height_map[key] = current_height + heights[i]
+        x_cursor += l
+        row_height = max(row_height, w)
+        placed = True
+        break
                     layout[v].append((i, x_cursor, y_cursor, l, w))
                     x_cursor += l
                     row_height = max(row_height, w)
