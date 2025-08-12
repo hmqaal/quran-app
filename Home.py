@@ -47,7 +47,6 @@ for i in range(1, 11):
 # Input form
 st.header("Inventory Inputs")
 num_individual = st.number_input("Number of Individual Inventory", min_value=0, max_value=200, value=0)
-stackable_flags = []
 weights, lengths, widths, heights = [], [], [], []
 cols = st.columns(5)
 for i in range(num_individual):
@@ -60,14 +59,12 @@ for i in range(num_individual):
     with cols[3]:
         heights.append(st.number_input(f"Height {i+1} (m)", key=f"hei_{i}", value=1.0))
     with cols[4]:
-    stackable_flags.append(st.checkbox(f"Stackable {i+1}", key=f"stk_{i}", value=True))
         st.markdown("&nbsp;")
 
 st.markdown("---")
 st.subheader("Bulk Inventory Entries")
 bulk_entries = st.number_input("Number of Bulk Inventory Types", min_value=0, max_value=20, value=0)
 
-bulk_stackable_flags = []
 for i in range(bulk_entries):
     st.markdown(f"**Bulk Parcel Type {i+1}**")
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -83,12 +80,10 @@ for i in range(bulk_entries):
         height = st.number_input("Height (m)", value=1.0, key=f"b_hei_{i}")
 
     for _ in range(quantity):
-    bulk_stackable_flags.extend([stackable] * quantity)
         weights.append(weight)
         lengths.append(length)
         widths.append(width)
         heights.append(height)
-stackable_flags.extend(bulk_stackable_flags)
 
 areas = [lengths[i] * widths[i] for i in range(len(weights))]
 
